@@ -5,3 +5,4 @@ stored.txt
 package-lock.json
 *.hwp
 *.txt
+*config*

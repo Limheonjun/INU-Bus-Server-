@@ -1,7 +1,9 @@
+"use strict"
 const express = require('express');
 const app = express();
 const bodyParser = require('body-parser');
-const config = require('./config.js');
+const morgan = require('morgan');
+const config = require('./config');
 
 // functions
 const url = require('./functions/url.js');
@@ -13,15 +15,19 @@ const arrivalInfo = require('./routes/arrivalinfo.js');
 const nodeData = require('./routes/nodedata.js');
 const errormsg = require('./routes/errormsg.js');
 const gps = require('./routes/gps.js');
+const location = require('./routes/location.js');
 
 // middleware
-app.use(express.static('public'));
+// if(!process.env.NODE_ENV || process.env.NODE_ENV.trimRight() !== 'test'){
+//   app.use(morgan('dev'));
+// }
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({extended: true}));
 app.use('/nodeData', nodeData);
 app.use('/arrivalInfo', arrivalInfo);
 app.use('/errormsg', errormsg);
 app.use('/gps', gps);
+app.use('/location', location);
 
 /*
 
@@ -35,6 +41,4 @@ Initial Commit
 
 */
 
-const server = app.listen(config.PORT, function(){
-  console.log(`Server running at ${config.PORT}`);
-});
+module.exports = app;

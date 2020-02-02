@@ -1,3 +1,4 @@
+'use strict'
 module.exports = {
   getDateTime : getDateTime,
   checkEmpty : checkEmpty,
@@ -9,13 +10,13 @@ module.exports = {
 
 // 현재 날짜(년, 달, 일, 시간, 분, 초) 반환
 function getDateTime(){
-  var date = new Date();
-  var hour = date.getHours();
-  var min  = date.getMinutes();
-  var sec  = date.getSeconds();
-  var year = date.getFullYear();
-  var month = date.getMonth() + 1;
-  var day  = date.getDate();
+  let date = new Date();
+  let hour = date.getHours();
+  let min  = date.getMinutes();
+  let sec  = date.getSeconds();
+  let year = date.getFullYear();
+  let month = date.getMonth() + 1;
+  let day  = date.getDate();
   hour = (hour < 10 ? "0" : "") + hour;
   min = (min < 10 ? "0" : "") + min;
   sec = (sec < 10 ? "0" : "") + sec;
@@ -47,10 +48,10 @@ function separateTime(sentence){
   if(sentence == '곧 출발') return 30;
   if(!checkEmpty(fn(sentence))){
     // TODO: sentence가 숫자일 경우
-      var section1 = sentence.indexOf('분');
-      var str1 = sentence.substring(0, section1);
-      var section2 = sentence.indexOf('초');
-      var str2 = sentence.substring(section1+1, section2);
+      let section1 = sentence.indexOf('분');
+      let str1 = sentence.substring(0, section1);
+      let section2 = sentence.indexOf('초');
+      let str2 = sentence.substring(section1+1, section2);
       return (parseInt(str1*60) + parseInt(str2));
   }
 }

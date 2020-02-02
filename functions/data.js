@@ -1,3 +1,4 @@
+'use strict'
 module.exports = {
   getIncheonPbus : getIncheonPbus,
   getIncheonNbus : getIncheonNbus,
@@ -7,13 +8,14 @@ module.exports = {
   getSeoulBusData : getSeoulBusData,
   getBusInformation : getBusInformation,
   returnNodes : returnNodes,
-  resetNodes : resetNodes
+  resetNodes : resetNodes,
+  getBusLocation : getBusLocation
 };
 
 
 const convert = require('xml-js');
 const request = require('sync-request');
-const config = require('../config.js');
+const config = require('../config');
 
 // functions
 const url = require('./url.js');
@@ -23,13 +25,11 @@ const process = require('./process.js');
 // 참조할 버스들 기본 정보 (회차지 추가)
 const buses = config.BUS_TIME_TABLE;
 // 각 정류장에 대한 데이터
-var schoolnodes = [config.BUS_STOP_FRONTGATE, config.BUS_STOP_SCIENCE, config.BUS_STOP_ENGINEER];
-// 서울버스(6405,1301,3002) routeId
-var seoulBus = [buses[9].routeid, buses[10].routeid, buses[11].routeid];
+const schoolnodes = [config.BUS_STOP_FRONTGATE, config.BUS_STOP_SCIENCE, config.BUS_STOP_ENGINEER];
 // 해경방향쪽 인천대 정문 정류장 nodeId
-var incheonEntrance = 'ICB164000396';
+const incheonEntrance = 'ICB164000396';
 // 인천대 정류장 도착정보가 담길 데이터 구조
-var nodes = [
+let nodes = [
   {name : 'frontgate', data : []},
   {name : 'science', data : []},
   {name : 'engineer', data : []}
@@ -39,111 +39,115 @@ var nodes = [
 // 인천대입구역까지 남은 시간을 역으로 계산하는 인천버스
 // 30초에 쿼리 1
 function getIncheonPbus(){
-  var url_new = url.makeIncheonBusUrl(incheonEntrance);
-  var data = getIncheonBusData(url_new);
-  if(util.checkEmpty(data)) return;
-  for(var i=0; i<data.length; i++){
-    // 버스 번호 처리
-    data[i].routeno = process.processBusNo(data[i].routeno);
-    // 처리한 버스번호로 버스 정보 불러오기
-    var busInfo = getBusInformation(data[i].routeno);
-    // 중복되는 버스가 존재하면 다음버스로 넘어감
-    if(process.checkIncheonPbusOverlap(data[i].routeno)) continue;
-    // 해당 버스가 각 정류장에 정차하는지 확인 후 정차하면 추가
-    for(var j=0; j<schoolnodes.length; j++){
-      for(var k=0; k<schoolnodes[j].pbus.length; k++){
-        if(data[i].routeno == schoolnodes[j].pbus[k].no){
-          nodes[j].data.push({
-            no : data[i].routeno,
-            arrival : Date.now() + (data[i].arrtime - (j+1)*60)*1000,
-            start : busInfo.data.start,
-            end : busInfo.data.end,
-            interval : busInfo.data.interval,
-            type : busInfo.data.type
-          });
-        }
-      }
-    }
+  return new Promise((resolve, reject)=>{
+  console.log(`IncheonPbus is being Processed . . .`);  
+  let url_new = url.makeIncheonBusUrl(incheonEntrance);
+  let data = getIncheonBusData(url_new);
+  if(!util.checkEmpty(data)) {
+    Array.from(data).forEach((val,idx)=>{
+      // 처리한 버스번호로 버스 정보 불러오기
+      let busInfo = getBusInformation(process.processBusNo(val.routeno));
+      // 중복되는 버스가 존재하면 다음버스로 넘어감
+      if(process.checkIncheonPbusOverlap(val.routeno)) return true;
+      // 해당 버스가 각 정류장에 정차하는지 확인 후 정차하면 추가
+      schoolnodes.forEach((node,nodeIdx)=>{
+        node.pbus.forEach((pbus,pbusIdx)=>{
+          if(val.routeno == pbus.no){
+            nodes[nodeIdx].data.push({
+              no : val.routeno,
+              arrival : Date.now() + (val.arrtime - (nodeIdx+1)*60)*1000,
+              start : busInfo.data.start,
+              end : busInfo.data.end,
+              interval : busInfo.data.interval,
+              type : busInfo.data.type
+            });
+          }
+        });
+      });
+    });
+    process.clearIncheonPbusverlap();
   }
-  process.clearIncheonPbusverlap();
+  resolve();
+  });
+  
 }
 
 // 학교 정류장별로 조회되는 인천버스
 // 30초에 쿼리 3
 function getIncheonNbus(){
-  for(var i=0; i<schoolnodes.length; i++){
-    var url_new = url.makeIncheonBusUrl(schoolnodes[i].id);
-    var data = getIncheonBusData(url_new);
-    if(util.checkEmpty(data)) continue;
-    for(var j=0; j<data.length; j++){
-      // 버스 번호 처리
-      data[j].routeno = process.processBusNo(data[j].routeno);
-      // 처리한 버스번호로 버스 정보 불러오기
-      var busInfo = getBusInformation(data[j].routeno);
-      // 중복되는 버스가 존재하면 다음버스로 넘어감
-      if(process.checkIncheonNbusOverlap(data[j].routeno)) continue;
-      // 해당 버스가 각 정류장에 정차하는지 확인 후 정차하면 추가
-      for(var k=0; k<schoolnodes[i].nbus.length; k++){
-        if(data[j].routeno == schoolnodes[i].nbus[k]){
-          nodes[i].data.push({
-            no : data[j].routeno,
-            arrival : Date.now() + data[j].arrtime*1000,
-            start : busInfo.data.start,
-            end : busInfo.data.end,
-            interval : busInfo.data.interval,
-            type : busInfo.data.type
-          });
-        }
-      }
-    }
-    process.clearIncheonNbusverlap();
-  }
+  return new Promise((resolve)=>{
+    console.log(`IncheonNbus is being Processed . . .`);
+    schoolnodes.forEach((node,nodeIdx)=>{
+      let url_new = url.makeIncheonBusUrl(node.id);
+      let data = getIncheonBusData(url_new);
+      //console.log(JSON.stringify(data));
+      if(util.checkEmpty(data) || data.length<1) return true;
+      Array.from(data).forEach((val1,idx)=>{
+        let busInfo = getBusInformation(process.processBusNo(val1.routeno));
+        // 중복되는 버스가 존재하면 다음버스로 넘어감
+        if(process.checkIncheonNbusOverlap(val1.routeno)) return true;;
+        node.nbus.forEach((val2,nbusIdx)=>{
+          if(val1.routeno == val2){
+            nodes[nodeIdx].data.push({
+              no : val1.routeno,
+              arrival : Date.now() + val1.arrtime*1000,
+              start : busInfo.data.start,
+              end : busInfo.data.end,
+              interval : busInfo.data.interval,
+              type : busInfo.data.type
+            });
+          }
+        });
+      });
+      process.clearIncheonNbusverlap();
+    });
+    resolve();
+  });
+
 }
 
 // 버스 노선정보 검색
-async function getbusNodes(){
-  var busNodes = [];
-  for(var i=0; i<buses.length; i++){
-    try {
-      if(buses[i].api == '국토교통부'){
-        var url_new = url.makeBusNodesUrl(buses[i].routeid);
+function getbusNodes(){
+  let busNodes = [];
+  buses.forEach((bus,busIdx)=>{
+    try{
+      if(bus.api == '국토교통부'){
+        let url_new = url.makeBusNodesUrl(bus.routeid);
       } else {
-        var url_new = url.makeBusNodesUrl('ICB'+buses[i].routeid);
+        let url_new = url.makeBusNodesUrl('ICB'+ bus.routeid);
       }
-      //console.log('http://' + url_new.host + url_new.path);
-      var res = await request('GET', 'http://' + url_new.host + url_new.path);
-      var json = JSON.parse(res.getBody('utf8'));
-      if(util.checkEmpty(json)) continue;
-      var temp = [];
-      for(var j=0; j<json.response.body.totalCount; j++){
-        var item = json.response.body.items.item;
-        temp.push(item[j].nodenm);
-      }
-      var data = {
-        no:process.processBusNo(util.fn(buses[i].no)),
-        routeid:buses[i].routeid,
+      let res = request('GET', 'http://' + url_new.host + url_new.path);
+      let json = JSON.parse(res.getBody('utf8'));
+      if(util.checkEmpty(json)) return true;
+      if(json.response.body.totalCount<1) return true;
+      let temp = [];
+      let items = json.response.body.items.item;
+      items.forEach(item=>{temp.push(item.nodenm);});
+      let data = {
+        no:process.processBusNo(util.fn(bus.no)),
+        routeid:bus.routeid,
         nodelist:temp,
-        turnnode:buses[i].data.turnnode,
-        start: buses[i].data.start,
-    		end: buses[i].data.end,
-        type: buses[i].data.type
+        turnnode:bus.data.turnnode,
+        start: bus.data.start,
+    		end: bus.data.end,
+        type: bus.data.type
       };
       busNodes.push(data);
     } catch (e) {
       console.log('getbusNodes() request error : ' + e);
       return;
     }
-  }
+  });
   console.log('BusNodes Updated!');
   return busNodes;
 }
 
 // 인천버스 url 요청 및 데이터 반환
 function getIncheonBusData(url_new){
-  var item = [];
+  let item = [];
   try {
-    var res = request('GET', 'http://' + url_new.host + url_new.path);
-    var json = JSON.parse(res.getBody('utf8'));
+    let res = request('GET', 'http://' + url_new.host + url_new.path);
+    let json = JSON.parse(res.getBody('utf8'));
     // 일일 트래픽 초과 예외처리
     //if(json.response.header.resultMsg != 'NORMAL SERVICE.') return;
     // 일일 트래픽 초과 예외처리
@@ -168,6 +172,7 @@ function getIncheonBusData(url_new){
     }
   } catch (e) {
     console.log('getIncheonbusData(url) request error : ' + e);
+    url.changeIncheonServiceKey();
   }
   return item;
 }
@@ -175,49 +180,82 @@ function getIncheonBusData(url_new){
 // 학교 정류장별로 조회되는 서울버스(3002, 1301)
 // 30초에 쿼리 2
 function getSeoulNbus(){
-  for(var k=1; k<seoulBus.length; k++){
-    var url_new = url.makeSeoulBusUrl(seoulBus[k]);
-    var data = getSeoulBusData(url_new);
-    if(util.checkEmpty(data)) return;
-    for(var i=0; i<schoolnodes.length; i++){
-      for(var j=0; j<data.length; j++){
-        if(util.fn(schoolnodes[i].id) == data[j].stId._text){
-
-          // 출발대기인 경우 넘어가기
-          if(util.checkWait(data[j].arrmsg1._text) || !util.separateTime(data[j].arrmsg1._text)) continue;
-          data[j].rtNm._text = util.fn(data[j].rtNm._text)
-          // 처리한 버스번호로 버스 정보 불러오기
-
-          var busInfo = getBusInformation(data[j].rtNm._text);
-          nodes[i].data.push({
-            no : data[j].rtNm._text,
-            arrival : Date.now() + util.separateTime(data[j].arrmsg1._text)*1000,
-            start : busInfo.data.start,
-            end : busInfo.data.end,
-            interval : busInfo.data.interval,
-            type : busInfo.data.type
-          });
+  return new Promise((resolve, reject)=>{
+    console.log(`SeoulNbus is being Processed . . .`);
+    const seoulBus = buses.filter(val=>{return val.api=='서울특별시';});
+    seoulBus.forEach((val,idx)=>{
+      let url_new = url.makeSeoulBusUrl(val.routeid);
+      let data = getSeoulBusData(url_new);
+      schoolnodes.forEach(bustop=>{
+        let obj = data.find(val2=>val2.stId_test==util.fn(bustop.id)) || -1;
+        if(obj!=-1 && !(util.checkWait(val2.arrmsg1._text) || !util.separateTime(val2.arrmsg1._text))){
+          //if(util.checkWait(val2.arrmsg1._text) || !util.separateTime(val2.arrmsg1._text)) continue;
+            val2.rtNm._text = util.fn(val2.rtNm._text)
+            // 처리한 버스번호로 버스 정보 불러오기
+            let busInfo = getBusInformation(val2.rtNm._text);
+            nodes[i].data.push({
+              no : val2.rtNm._text,
+              arrival : Date.now() + util.separateTime(val2.arrmsg1._text)*1000,
+              start : busInfo.data.start,
+              end : busInfo.data.end,
+              interval : busInfo.data.interval,
+              type : busInfo.data.type
+            });
         }
-      }
-    }
-  }
+      });
+    });
+    resolve();
+  });
 }
 
 // 서울버스 url 요청 및 데이터 반환
 function getSeoulBusData(url_new){
-  var itemList = [];
+  let itemList = [];
   try{
-    var res = request('GET', 'http://' +url_new.host + url_new.path);
-    var xmlToJson = convert.xml2json(res.getBody().toString(), {compact: true, spaces: 2}); // space는 하위 태그당 들여쓰기 수
-    var json = JSON.parse(xmlToJson);
+    let res = request('GET', 'http://' +url_new.host + url_new.path);
+    let xmlToJson = convert.xml2json(res.getBody().toString(), {compact: true, spaces: 2}); // space는 하위 태그당 들여쓰기 수
+    let json = JSON.parse(xmlToJson);
     itemList = json.ServiceResult.msgBody.itemList;
   } catch (e) {
     console.log('seoulbus(url) request error : ' + e);
+    url.changeSeoulServiceKey();
     return;
   }
   return itemList;
 }
 
+// 버스 실시간 위치
+function getBusLocation(){
+  return new Promise(resolve=>{
+    let datas = [];
+    try{
+      buses.forEach((bus, busIdx)=>{
+        if(bus.api == '서울특별시') return true;
+        let url_new = url.makeBusLocationUrl(bus.routeid);
+        let res = request('GET', 'http://' + url_new.host + url_new.path);
+        let json = JSON.parse(res.getBody('utf8'));
+        let temp = [];
+        if(json.response.body.totalCount == 0) return true;
+        let items = json.response.body.items.item;
+        items.forEach(item=>{
+          let {nodeid, nodenm, nodeord, vehicleno} = item;
+          temp.push({nodeid, nodenm, nodeord, vehicleno});
+        });
+        let data = {
+          no:process.processBusNo(util.fn(bus.no)),
+          routeid:bus.routeid,
+          nodelist:temp,
+        };
+        datas.push(data);
+      });
+    } catch (e) {
+      console.log('getBusLocation() request error : ' + e);
+      return;
+    } finally {
+      resolve(datas);
+    }
+  });
+}
 
 // nodes에 들어있는 정보 반환
 function returnNodes(){
@@ -235,12 +273,5 @@ function resetNodes(){
 
 // 버스 번호에 맞는 데이터 불러오기
 function getBusInformation(routeno){
-  for(var i = 0 ; i < buses.length; i++)
-  {
-    if(buses[i].no == routeno)
-    {
-      return buses[i];
-    }
-  }
-  return -1;
+  return buses.find(val=>val.no.toString()==routeno) || -1;
 }

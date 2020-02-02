@@ -1,3 +1,5 @@
+
+'use strict'
 module.exports = {
   checkIncheonNbusOverlap : checkIncheonNbusOverlap,
   checkIncheonPbusOverlap : checkIncheonPbusOverlap,
@@ -11,18 +13,15 @@ module.exports = {
 const util = require('./util.js');
 
 // 버스 중복 체크
-var incheonPbusOverlap = [];
-var incheonNbusOverlap = [];
+let incheonPbusOverlap = [];
+let incheonNbusOverlap = [];
 
 
 // 중복되는 N버스 처리
 function checkIncheonNbusOverlap(routeno){
-  for(var i=0; i<incheonNbusOverlap.length; i++){
-      // 중복되는 번호가 있으면 1 반환
-      if(routeno == incheonNbusOverlap[i]) {
-        return 1;
-      }
-  }
+  incheonNbusOverlap.forEach(val=>{
+    if(val==routeno) return 1;
+  });
   incheonNbusOverlap.push(routeno);
   // 중복되는 번호가 없으면 0반환
   return 0;
@@ -40,12 +39,9 @@ function clearIncheonNbusverlap(){
 
 // 중복되는 P버스 처리
 function checkIncheonPbusOverlap(routeno){
-  for(var i=0; i<incheonPbusOverlap.length; i++){
-      // 중복되는 번호가 있으면 1 반환
-      if(routeno == incheonPbusOverlap[i]) {
-        return 1;
-      }
-  }
+  incheonPbusOverlap.forEach(val=>{
+    if(val==routeno) return 1;
+  });
   incheonPbusOverlap.push(routeno);
   // 중복되는 번호가 없으면 0반환
   return 0;

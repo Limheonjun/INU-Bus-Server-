@@ -7,13 +7,18 @@
     "body-parser": "^1.19.0",
     "express": "^4.17.1",
     "hashmap": "^2.3.0",
+    "mocha": "^7.0.1",
+    "morgan": "^1.9.1",
     "mysql": "^2.17.1",
+    "should": "^13.2.3",
+    "supertest": "^4.0.2",
     "sync-request": "^6.1.0",
     "xml-js": "^1.6.11"
   },
   "devDependencies": {},
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "set NODE_ENV=test && mocha \"test/**/*.spec.js\"",
+    "start": "node bin/www.js"
   },
   "author": "",
   "license": "ISC"

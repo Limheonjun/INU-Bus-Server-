@@ -1,34 +1,26 @@
+'use strict'
 const express = require('express');
+const config = require('../config');
+const mysql = require('mysql');
+const pool = mysql.createPool(config.MYSQL_CONFIG);
 const router = express.Router();
-const config = require('../config.js');
-
 
 //문의 사항 라우터
-router.post('/errormsg', function(req, res){
-  var title = req.body.title;
-  var msg = req.body.msg;
-  var contact = req.body.contact;
-  var device = req.body.device;
-  if(!title){
-    title = " ";
-  }
-  if(!msg){
-    msg = " ";
-  }
-  if(!contact){
-    contact = " ";
-  }
-  if(!device){
-    device = " ";
-  }
-  var pool = mysql.createPool(config.MYSQL_CONFIG);
-  pool.getConnection(function(err, connection){
+router.post('/', (req, res)=>{
+  const title = req.body.title || "";
+  const message = req.body.message || "";
+  const contact = req.body.contact || "";
+  const device = req.body.device || "";
+  console.log("data : "+JSON.stringify(req.body));
+
+
+  pool.getConnection((err, connection)=>{
     if(err){
       console.log(err);
       res.status(404).send("DB_ERROR");
     }
     else {
-      connection.query("insert into question set?", {title:title, msg:msg, contact:contact, device:device}, function(err, results){
+      connection.query("insert into questions(title, message, contact, device) values(?, ?, ?, ?)", [title, message, contact, device], (err, results)=>{
           if(!err){
             res.status(200).send("SUCCESS");
           }

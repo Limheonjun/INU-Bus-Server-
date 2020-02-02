@@ -1,9 +1,10 @@
+'use strict'
 const express = require('express');
-const router = express.Router();
 const HashMap = require('hashmap');
 const mysql = require('mysql');
-const config = require('../config.js');
-var pool = mysql.createPool(config.MYSQL_CONFIG);
+const config = require('../config');
+const router = express.Router();
+const pool = mysql.createPool(config.MYSQL_CONFIG);
 
 
 /*
@@ -30,7 +31,7 @@ var pool = mysql.createPool(config.MYSQL_CONFIG);
 석수역 1번출구 - 미추홀캠퍼스 - 송도캠퍼스
 (1 2 3 4 5)
 */
-var map = new HashMap();
+let map = new HashMap();
 map.set("송내", {status : 0, location : 0, lat : 0, lng : 0, check : 0});
 map.set("수원", {status : 0, location : 0, lat : 0, lng : 0, check : 0});
 map.set("일산", {status : 0, location : 0, lat : 0, lng : 0, check : 0});
@@ -38,22 +39,21 @@ map.set("청라", {status : 0, location : 0, lat : 0, lng : 0, check : 0});
 map.set("광명", {status : 0, location : 0, lat : 0, lng : 0, check : 0});
 
 // gps값 수신
-router.post('/', function(req, res){
-  var status = req.body.status;
-  var routeId = req.body.routeId;
-  var lat = req.body.lat;
-  var lng = req.body.lng;
+router.post('/', (req, res)=>{
+  let status = req.body.status;
+  let routeId = req.body.routeId;
+  let lat = req.body.lat;
+  let lng = req.body.lng;
   if(!(routeId || lat || lng)){
-    res.status(404).send("NULL");
-    return;
+    res.sendStatus(404);
   } else {
     if(status == '0' || status == 0){
       map.set(routeId, {status : status, location : 0, lat : 0, lng : 0, check : 0});
-      res.status(200).send("Inserted");
+      res.sendStatus(200);
     } else {
-        findLocation(routeId, lat, lng, function(err, location){
+        findLocation(routeId, lat, lng, (err, location)=>{
           if(err) {
-            res.status(500).send(err);
+            res.sendStatus(500);
             console.log(err);
             return;
           }
@@ -65,29 +65,29 @@ router.post('/', function(req, res){
           } else {
             map.set(routeId, {status : status, location : map.get(routeId).location , lat : lat, lng : lng, check : 1});
           }
-          res.status(200).send("Inserted");
+          res.sendStatus(200);
         });
     }
   }
 });
 
 // 현재 위치 띄워주기
-router.get('/', function(req,res){
-  var data = [];
-  map.forEach(function(value, key){
-    data.push({routeId : key, status : map.get(key).status, location : map.get(key).location, lat : map.get(key).lat, lng : map.get(key).lng});
+router.get('/', (req,res)=>{
+  let data = [];
+  map.forEach((value, key)=>{
+    data.push({routeId : key, status : map.get(key).status*1, location : map.get(key).location, lat : map.get(key).lat*1, lng : map.get(key).lng*1});
   });
-  res.send(data);
+  res.status(200).send(data);
 });
 
 module.exports = router;
 
 
 function findLocation(routeId, vlat, vlng, callback){
-  var sql = 'SELECT *, (6371*acos(cos(radians('+vlat+'))*cos(radians(lat))*cos(radians(lng)'+
+  let sql = 'SELECT *, (6371*acos(cos(radians('+vlat+'))*cos(radians(lat))*cos(radians(lng)'+
 	'-radians('+vlng+'))+sin(radians('+vlat+'))*sin(radians(lat))))'+
 	'AS distance '+
-  'FROM location '+
+  'FROM location WHERE routeId = \"'+routeId+'\" '+
   'HAVING distance <= 0.1 '+ // 0.1km => 100m반경 검색
   'ORDER BY distance';
   pool.getConnection(function(err, connection){

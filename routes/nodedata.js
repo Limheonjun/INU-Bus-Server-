@@ -1,27 +1,23 @@
+'use strict'
 const express = require('express');
-const router = express.Router();
-const config = require('../config.js');
+const config = require('../config');
 const data = require('../functions/Data.js');
 const fs = require('fs');
+const router = express.Router();
 
 
-//var busNodes = data.getbusNodes();
-var datas = fs.readFileSync('busNodes.txt', 'utf8').substring(1);
-var busNodes = JSON.parse(datas);
+// 상황에 따라 substring 함수를 제거하고 실행해야함
+const datas = fs.readFileSync('busNodes.txt', 'utf8').substring(1);
+const busNodes = JSON.parse(datas);
 
 // 노선 정보 출력 라우터
-router.get(['/', '/:no'], function(req, res){
-  var no = req.params.no;
+router.get(['/', '/:no'], (req, res)=>{
+  const no = req.params.no;
   if(no){
-    for(var i=0; i<busNodes.length ;i++){
-      if(no == busNodes[i].no){
-        res.send(busNodes[i]);
-      }
-    }
-  } else {
-    res.send(busNodes);
-  }
-  console.log(req.ip + ' '+ req.url + ' connected' );
+    busNodes.forEach(element => {
+      if(element.no == no) res.status(200).send(element);
+    });
+  } else res.status(200).send(busNodes);
 });
 
 module.exports = router;
